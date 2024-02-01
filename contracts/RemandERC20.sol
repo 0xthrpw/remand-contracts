@@ -246,40 +246,6 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	}
 
 	/**
-		Repay offer
-		return ask 
-		withdraw collateral
-	*/
-	function repay (
-		bytes32 _key
-	) external nonReentrant {
-		Offer memory offer = offers[_key];
-
-		if(offer.owner != msg.sender){
-			revert NotOfferOwner();
-		}
-
-		// transfer ask from owner to original target
-		IERC20(offer.askToken).safeTransferFrom(
-			msg.sender,
-			offer.target,
-			offer.askAmount
-		);
-
-		// return collateral to original owner
-		IERC20(offer.collateral).safeTransfer(
-			msg.sender,
-			offer.collateralAmount
-		);
-
-		//delete offers[_key];
-
-		emit Repaid(
-			_key
-		);
-	}
-
-	/**
 		Accept offer
 		deposit ask (sent to offer owner)
 		receive fee
@@ -313,6 +279,40 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 		emit Accepted(
 			msg.sender,
+			_key
+		);
+	}
+
+	/**
+		Repay offer
+		return ask 
+		withdraw collateral
+	*/
+	function repay (
+		bytes32 _key
+	) external nonReentrant {
+		Offer memory offer = offers[_key];
+
+		if(offer.owner != msg.sender){
+			revert NotOfferOwner();
+		}
+
+		// transfer ask from owner to original target
+		IERC20(offer.askToken).safeTransferFrom(
+			msg.sender,
+			offer.target,
+			offer.askAmount
+		);
+
+		// return collateral to original owner
+		IERC20(offer.collateral).safeTransfer(
+			msg.sender,
+			offer.collateralAmount
+		);
+
+		//delete offers[_key];
+
+		emit Repaid(
 			_key
 		);
 	}

@@ -1,5 +1,5 @@
 {
-  "name": "favor-contracts",
+  "name": "remand-contracts",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xthrpw/favor-contracts.git"
+    "url": "git+https://github.com/0xthrpw/remand-contracts.git"
   },
   "author": "0xthrpw",
   "license": "GPL-3.0",
   "bugs": {
-    "url": "https://github.com/0xthrpw/favor-contracts/issues"
+    "url": "https://github.com/0xthrpw/remand-contracts/issues"
   },
-  "homepage": "https://github.com/0xthrpw/favor-contracts#readme",
+  "homepage": "https://github.com/0xthrpw/remand-contracts#readme",
   "dependencies": {
     "@nomicfoundation/hardhat-verify": "^2.0.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
