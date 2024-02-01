@@ -4,6 +4,15 @@ require('@nomiclabs/hardhat-waffle')
 require("@nomicfoundation/hardhat-verify");
 require('dotenv').config()
 
+// Include the detailed gas usage reporter for tests.
+require('hardhat-gas-reporter');
+
+// Include the contract size output display.
+require('hardhat-contract-sizer');
+
+// Include coverage checking for unit tests.
+require('solidity-coverage');
+
 module.exports = {
   networks: {
     hardhat: {
