@@ -2,6 +2,10 @@
 pragma solidity ^0.8.19;
 
 import { 
+	RemandConfig 
+} from "./RemandConfig.sol";
+
+import { 
 	Ownable 
 } from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -14,9 +18,17 @@ import {
 	SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {
+	IERC721
+} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+import {
+	IERC1155
+} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+
 
 /**
-	Thrown when wrong user tries to accept private offer
+	Thrown when wrong user tries to accept private offer or remand collateral
 */
 error NotOfferTarget();
 
@@ -73,29 +85,41 @@ error AskIsCollateral();
 	Time based token lending that is independent of asset price.
 	
 	This contract allows users to borrow and lend tokens for a term in return
-	for fees. if the borrower does not return the 'ask' token by the end of the 
+	for fees. if the borrower does not return the 'ask' token(s) by the end of the 
 	term, then the lender can remand the collateral. it is completely up to the 
 	users to determine what constitutes a 'fair' offer. 
 
 	@custom:date January 30th, 2024.
 */
-contract RemandERC20 is Ownable, ReentrancyGuard {
+contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	using SafeERC20 for IERC20;
+
+	enum AssetType {
+		ERC20,
+		ERC721,
+		ERC1155
+	}
+
+	struct Asset {
+		uint256 quantity;
+		uint256 id;
+		address assetAddress;
+		AssetType assetType;
+	}
 
 	struct Offer {
 		address owner;
 		uint96 term;
 		address target;
-		uint96 acceptedAt;
-		address askToken;
-		uint96 askAmount;
-		address collateral;
-		uint96 collateralAmount;
-		address fee;
-		uint96 feeAmount;
+		uint48 acceptedAt;
+		uint48 deadline;
+
+		Asset[] askAssets;
+		Asset[] collateralAssets;
+		Asset[] feeAssets;
 	}
 
-	/// keccak(owner, target, collateral, nonce) => Offer struct
+	/// keccak(owner, target, nonce) => Offer struct
 	mapping ( bytes32 => Offer ) public offers;
 
 	/// address => nonce
@@ -107,7 +131,6 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	event Created(
 		address indexed owner,
 		address indexed target,
-		address indexed collateral,
 		bytes32 key
 	);
 
@@ -164,15 +187,10 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert NonZeroAcceptedAt();
 		}
 
-		if ( _offer.collateral == _offer.askToken ) {
-			revert AskIsCollateral();
-		}
-
 		bytes32 key = keccak256(
 			abi.encodePacked(
 				_offer.owner, 
 				_offer.target, 
-				_offer.collateral, 
 				nonces[msg.sender]
 			)
 		);
@@ -182,18 +200,10 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		}
 
 		// transfer collateral
-		IERC20(_offer.collateral).safeTransferFrom(
-			msg.sender,
-			address(this),
-			_offer.collateralAmount
-		);
+		_handleAssetTransfers(_offer.collateralAssets, msg.sender, address(this));
 
 		// transfer fee
-		IERC20(_offer.fee).safeTransferFrom(
-			msg.sender,
-			address(this),
-			_offer.feeAmount
-		);
+		_handleAssetTransfers(_offer.feeAssets, msg.sender, address(this));
 
 		offers[key] = _offer;
 
@@ -204,7 +214,6 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		emit Created(
 			_offer.owner, 
 			_offer.target, 
-			_offer.collateral,
 			key
 		);
 	}
@@ -227,17 +236,11 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert CantRescindAcceptedOffer();
 		}
 
-		// transfer collateral back to owner
-		IERC20(offer.collateral).safeTransfer(
-			msg.sender,
-			offer.collateralAmount
-		);
+		// transfer collateral assets back to owner
+		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
-		// transfer fee back to owner
-		IERC20(offer.fee).safeTransfer(
-			msg.sender,
-			offer.feeAmount
-		);
+		// transfer fee assets back to owner
+		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
 
 		delete offers[_key];
 
@@ -264,19 +267,14 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		}
 
 		// update offer state
-		offers[_key].acceptedAt = uint96(block.timestamp);
+		offers[_key].acceptedAt = uint48(block.timestamp);
+		offers[_key].target = msg.sender;
 
-		// transfer ask from target to offer owner
-		IERC20(offer.askToken).safeTransferFrom(
-			msg.sender,
-			offer.owner,
-			offer.askAmount
-		);
-		// transfer fee from contract to target
-		IERC20(offer.fee).safeTransfer(
-			msg.sender,
-			offer.feeAmount
-		);
+		// transfer ask assets from target to offer owner
+		_handleAssetTransfers(offer.askAssets, msg.sender, offer.owner);
+
+		// transfer fee assets from contract to target
+		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
 
 		emit Accepted(
 			msg.sender,
@@ -298,18 +296,12 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert NotOfferOwner();
 		}
 
-		// transfer ask from owner to original target
-		IERC20(offer.askToken).safeTransferFrom(
-			msg.sender,
-			offer.target,
-			offer.askAmount
-		);
+		// transfer ask assets from owner to original target
+		_handleAssetTransfers(offer.askAssets, msg.sender, offer.target);
 
-		// return collateral to original owner
-		IERC20(offer.collateral).safeTransfer(
-			msg.sender,
-			offer.collateralAmount
-		);
+		// return collateral assets to original owner
+		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
+
 
 		delete offers[_key];
 
@@ -328,6 +320,11 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
+		// require caller is offer target
+		if ( offer.target != msg.sender) {
+			revert NotOfferTarget();
+		}
+
 		// require offer is accepted
 		if ( offer.acceptedAt == 0) {
 			revert OfferNotAccepted();
@@ -338,11 +335,8 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert IncompleteTerm();
 		}
 
-		// transfer collateral to target
-		IERC20(offer.collateral).safeTransfer(
-			msg.sender,
-			offer.collateralAmount
-		);
+		// transfer collateral assets to target
+		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
 		delete offers[_key];
 
@@ -352,4 +346,46 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		);
 	}
 
+
+	/**
+		iterate through array of assets and handle transfers according to the 
+		assets's type (ERC20, ERC721 or ERC1155)
+	*/
+	function _handleAssetTransfers ( 
+		Asset[] memory _assets,
+		address from,
+		address to
+	) internal {
+		for (uint256 i; i < _assets.length; ) {
+			if (_assets[i].assetType == AssetType.ERC20) {
+				IERC20(_assets[i].assetAddress).safeTransferFrom(
+					from,
+					to,
+					_assets[i].quantity
+				);
+			}
+
+			if (_assets[i].assetType == AssetType.ERC721) {
+				IERC721(_assets[i].assetAddress).transferFrom(
+					from,
+					to,
+					_assets[i].id
+				);
+			}
+
+			if (_assets[i].assetType == AssetType.ERC1155) {
+				IERC1155(_assets[i].assetAddress).safeTransferFrom(
+					from,
+					to,
+					_assets[i].id,
+					_assets[i].quantity,
+					""
+				);
+			}
+
+			unchecked {
+				++i;
+			}
+		}
+	}
 }

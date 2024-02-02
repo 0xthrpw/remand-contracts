@@ -66,6 +66,22 @@ module.exports = {
           }
         }
       },
+	  {
+        version: '0.6.12',
+        settings: {
+          optimizer: {
+            enabled: true
+          }
+        }
+      },
+	  {
+        version: '0.4.22',
+        settings: {
+          optimizer: {
+            enabled: true
+          }
+        }
+      },
     ]
   }
 }
