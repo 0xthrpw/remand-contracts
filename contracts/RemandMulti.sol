@@ -136,6 +136,9 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	/// address => nonce
 	mapping ( address => uint256 ) public nonces;
 
+	/// the minimum term length in seconds 
+	uint256 public immutable minimumTerm;
+
 	/**
 		Emitted on offer creation.
 	*/
@@ -174,8 +177,6 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		address indexed remandedBy,
 		bytes32 key
 	);
-
-	uint256 public immutable minimumTerm;
 
 	/**
 	
@@ -231,10 +232,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		// transfer collateral
-		_handleAssetTransferFroms(_offer.collateralAssets, msg.sender, address(this));
+		_handleAssetTransfers(_offer.collateralAssets, msg.sender, address(this));
 
 		// transfer fee
-		_handleAssetTransferFroms(_offer.feeAssets, msg.sender, address(this));
+		_handleAssetTransfers(_offer.feeAssets, msg.sender, address(this));
 
 		offers[key] = _offer;
 
@@ -267,13 +268,13 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 			revert CantRescindAcceptedOffer();
 		}
 
+		delete offers[_key];
+
 		// transfer collateral assets back to owner
-		_handleAssetTransfers(offer.collateralAssets, msg.sender);
+		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
 		// transfer fee assets back to owner
-		_handleAssetTransfers(offer.feeAssets, msg.sender);
-
-		delete offers[_key];
+		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
 
 		emit Rescinded(
 			_key
@@ -306,10 +307,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		offers[_key].target = msg.sender;
 
 		// transfer ask assets from target to offer owner
-		_handleAssetTransferFroms(offer.askAssets, msg.sender, offer.owner);
+		_handleAssetTransfers(offer.askAssets, msg.sender, offer.owner);
 
 		// transfer fee assets from contract to target
-		_handleAssetTransfers(offer.feeAssets, msg.sender);
+		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
 
 		emit Accepted(
 			msg.sender,
@@ -335,14 +336,13 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 			revert OfferNotAccepted();
 		}
 
+		delete offers[_key];
+
 		// transfer ask assets from owner to original target
-		_handleAssetTransferFroms(offer.askAssets, msg.sender, offer.target);
+		_handleAssetTransfers(offer.askAssets, msg.sender, offer.target);
 
 		// return collateral assets to original owner
-		_handleAssetTransfers(offer.collateralAssets, msg.sender);
-
-
-		delete offers[_key];
+		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
 		emit Repaid(
 			_key
@@ -374,10 +374,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 			revert IncompleteTerm();
 		}
 
-		// transfer collateral assets to target
-		_handleAssetTransfers(offer.collateralAssets, msg.sender);
-
 		delete offers[_key];
+
+		// transfer collateral assets to target
+		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
 		emit Remanded(
 			msg.sender,
@@ -391,56 +391,23 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	*/
 	function _handleAssetTransfers ( 
 		Asset[] memory _assets,
-		address to
-	) internal {
-		for (uint256 i; i < _assets.length; ) {
-			if (_assets[i].assetType == AssetType.ERC20) {
-				IERC20(_assets[i].assetAddress).safeTransfer(
-					to,
-					_assets[i].quantity
-				);
-			}
-
-			if (_assets[i].assetType == AssetType.ERC721) {
-				IERC721(_assets[i].assetAddress).transferFrom(
-					address(this),
-					to,
-					_assets[i].id
-				);
-			}
-
-			if (_assets[i].assetType == AssetType.ERC1155) {
-				IERC1155(_assets[i].assetAddress).safeTransferFrom(
-					address(this),
-					to,
-					_assets[i].id,
-					_assets[i].quantity,
-					""
-				);
-			}
-
-			unchecked {
-				++i;
-			}
-		}
-	}
-
-	/**
-		iterate through array of assets and handle transfers according to the 
-		assets's type (ERC20, ERC721 or ERC1155)
-	*/
-	function _handleAssetTransferFroms ( 
-		Asset[] memory _assets,
 		address from,
 		address to
 	) internal {
 		for (uint256 i; i < _assets.length; ) {
 			if (_assets[i].assetType == AssetType.ERC20) {
-				IERC20(_assets[i].assetAddress).safeTransferFrom(
-					from,
-					to,
-					_assets[i].quantity
-				);
+				if ( from == address(this) ) {
+					IERC20(_assets[i].assetAddress).safeTransfer(
+						to,
+						_assets[i].quantity
+					);
+				} else {
+					IERC20(_assets[i].assetAddress).safeTransferFrom(
+						from,
+						to,
+						_assets[i].quantity
+					);
+				}
 			}
 
 			if (_assets[i].assetType == AssetType.ERC721) {

@@ -1,4 +1,4 @@
-const { ethers } = require('hardhat');
+const { ethers, network } = require('hardhat');
 const { expect } = require('chai');
 const { should } = require('chai').should();
 
@@ -73,11 +73,16 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 
 	context('Offer creation', async () => {
 		it('should create offer successfully', async () => {
+
+			const blockTimestamp = (await admin.provider.getBlock('latest')).timestamp;
+			const term = 100000;
+
 			const offer = {
 				owner: offerCreator.address, 
-				term: 100000,
+				term: term,
 				target: offerTarget.address,
 				acceptedAt: 0,
+				deadline: blockTimestamp + 1000,
 				askToken: askToken_1.address,
 				askAmount: ethers.utils.parseEther('10000'),
 				collateral: collateralToken_1.address,
@@ -105,14 +110,14 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			const newOfferReceipt = await newOffer.wait();
 			const newOfferKey = newOfferReceipt.events[4].args.key;
 			const offerData = await remandERC20.offers(newOfferKey);
-			console.log("offerData", offerData)
+			// console.log("offerData", offerData)
 
 			const duplicateOffer = 
 				await remandERC20.connect(offerCreator.signer).create(offer);
 
 			const duplicateOfferReceipt = await duplicateOffer.wait();
-			console.log(newOfferReceipt.events[4].args);
-			console.log(duplicateOfferReceipt.events[4].args);
+			// console.log(newOfferReceipt.events[4].args);
+			// console.log(duplicateOfferReceipt.events[4].args);
 
 
 			//accept offer
@@ -123,7 +128,7 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			await remandERC20.connect(offerTarget.signer).accept(newOfferKey);
 
 			const offerUpdatedData = await remandERC20.offers(newOfferKey);
-			console.log("offerUpdatedData", offerUpdatedData);
+			// console.log("offerUpdatedData", offerUpdatedData);
 		});
 	});
 });

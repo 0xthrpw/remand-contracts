@@ -66,8 +66,19 @@ error OfferAlreadyExists();
 error AskIsCollateral();
 
 /**
+ 	Thrown when attempting to accept an offer after the offer deadline
+*/
+error OfferExpired();
+
+/**
+ 	Thrown when attempting to create an offer with a term that is less than the 
+	contract's 'minimumTerm';
+*/
+error TermTooShort();
+
+/**
 	@custom:benediction DEVS BENEDICAT ET PROTEGAT CONTRACTVS MEAM
-	@title Remand: NFT, ERC20 and native ETH Collateral Lending
+	@title Remand: ERC20 Collateral Lending
 	@author throw; <@0xthrpw>
 
 	Time based token lending that is independent of asset price.
@@ -86,7 +97,8 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		address owner;
 		uint96 term;
 		address target;
-		uint96 acceptedAt;
+		uint48 acceptedAt;
+		uint48 deadline;
 		address askToken;
 		uint96 askAmount;
 		address collateral;
@@ -141,11 +153,14 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		bytes32 key
 	);
 
+	uint256 public immutable minimumTerm;
+
+
 	/**
 	
 	*/
 	constructor () {
-
+		minimumTerm = 1 days;
 	}
 
 	/**
@@ -227,6 +242,8 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert CantRescindAcceptedOffer();
 		}
 
+		delete offers[_key];
+
 		// transfer collateral back to owner
 		IERC20(offer.collateral).safeTransfer(
 			msg.sender,
@@ -238,8 +255,6 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			msg.sender,
 			offer.feeAmount
 		);
-
-		delete offers[_key];
 
 		emit Rescinded(
 			_key
@@ -263,8 +278,13 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert OfferAlreadyAccepted();
 		}
 
+		if ( offer.deadline != 0 && block.timestamp > offer.deadline ) {
+			revert OfferExpired();
+		}
+
 		// update offer state
-		offers[_key].acceptedAt = uint96(block.timestamp);
+		offers[_key].acceptedAt = uint48(block.timestamp);
+		offers[_key].target = msg.sender;
 
 		// transfer ask from target to offer owner
 		IERC20(offer.askToken).safeTransferFrom(
@@ -298,6 +318,12 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert NotOfferOwner();
 		}
 
+		if( offer.acceptedAt == 0 ) {
+			revert OfferNotAccepted();
+		}
+
+		delete offers[_key];
+
 		// transfer ask from owner to original target
 		IERC20(offer.askToken).safeTransferFrom(
 			msg.sender,
@@ -310,8 +336,6 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			msg.sender,
 			offer.collateralAmount
 		);
-
-		delete offers[_key];
 
 		emit Repaid(
 			_key
@@ -327,6 +351,11 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		bytes32 _key
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
+		
+		// require caller is offer target
+		if ( offer.target != msg.sender) {
+			revert NotOfferTarget();
+		}
 
 		// require offer is accepted
 		if ( offer.acceptedAt == 0) {
