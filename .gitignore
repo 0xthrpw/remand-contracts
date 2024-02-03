@@ -132,3 +132,4 @@ dist
 cache/
 artifacts/
 .codetogether.ignore
+coverage.json

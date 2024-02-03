@@ -79,7 +79,7 @@ error AskIsCollateral();
 
 /**
 	@custom:benediction DEVS BENEDICAT ET PROTEGAT CONTRACTVS MEAM
-	@title Remand: NFT, ERC20 and native ETH Collateral Lending
+	@title Remand: ERC20, ERC721 and ERC1155 Collateral Lending
 	@author throw; <@0xthrpw>
 
 	Time based token lending that is independent of asset price.
@@ -172,6 +172,20 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	}
 
 	/**
+		Helper function to retrieve offer data, native getters don't return
+		struct arrays
+	*/
+	function getOfferTokens ( 
+		bytes32 _key 
+	) external view returns ( Asset[] memory, Asset[] memory, Asset[] memory ) {
+		return (
+			offers[_key].askAssets, 
+			offers[_key].collateralAssets, 
+			offers[_key].feeAssets
+		);
+	}
+
+	/**
 		Create new offer
 		deposit collateral
 		deposit fee
@@ -200,10 +214,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		// transfer collateral
-		_handleAssetTransfers(_offer.collateralAssets, msg.sender, address(this));
+		_handleAssetTransferFroms(_offer.collateralAssets, msg.sender, address(this));
 
 		// transfer fee
-		_handleAssetTransfers(_offer.feeAssets, msg.sender, address(this));
+		_handleAssetTransferFroms(_offer.feeAssets, msg.sender, address(this));
 
 		offers[key] = _offer;
 
@@ -271,7 +285,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		offers[_key].target = msg.sender;
 
 		// transfer ask assets from target to offer owner
-		_handleAssetTransfers(offer.askAssets, msg.sender, offer.owner);
+		_handleAssetTransferFroms(offer.askAssets, msg.sender, offer.owner);
 
 		// transfer fee assets from contract to target
 		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
@@ -297,7 +311,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		// transfer ask assets from owner to original target
-		_handleAssetTransfers(offer.askAssets, msg.sender, offer.target);
+		_handleAssetTransferFroms(offer.askAssets, msg.sender, offer.target);
 
 		// return collateral assets to original owner
 		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
@@ -331,7 +345,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		// require term is expired
-		if ( offer.acceptedAt + offer.term < block.timestamp ) {
+		if ( offer.acceptedAt + offer.term > block.timestamp ) {
 			revert IncompleteTerm();
 		}
 
@@ -346,12 +360,52 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		);
 	}
 
+/**
+		iterate through array of assets and handle transfers according to the 
+		assets's type (ERC20, ERC721 or ERC1155)
+	*/
+	function _handleAssetTransfers ( 
+		Asset[] memory _assets,
+		address from,
+		address to
+	) internal {
+		for (uint256 i; i < _assets.length; ) {
+			if (_assets[i].assetType == AssetType.ERC20) {
+				IERC20(_assets[i].assetAddress).safeTransfer(
+					to,
+					_assets[i].quantity
+				);
+			}
+
+			if (_assets[i].assetType == AssetType.ERC721) {
+				IERC721(_assets[i].assetAddress).transferFrom(
+					address(this),
+					to,
+					_assets[i].id
+				);
+			}
+
+			if (_assets[i].assetType == AssetType.ERC1155) {
+				IERC1155(_assets[i].assetAddress).safeTransferFrom(
+					address(this),
+					to,
+					_assets[i].id,
+					_assets[i].quantity,
+					""
+				);
+			}
+
+			unchecked {
+				++i;
+			}
+		}
+	}
 
 	/**
 		iterate through array of assets and handle transfers according to the 
 		assets's type (ERC20, ERC721 or ERC1155)
 	*/
-	function _handleAssetTransfers ( 
+	function _handleAssetTransferFroms ( 
 		Asset[] memory _assets,
 		address from,
 		address to

@@ -515,7 +515,7 @@ contract TestERC721 is
     @param _recipient The recipient of the tokens being minted.
     @param _amount The amount of tokens to mint.
   */
-  function mint_Qgo (
+  function mint (
     address _recipient,
     uint256 _amount
   ) external onlyAdmin {

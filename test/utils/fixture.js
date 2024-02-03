@@ -40,6 +40,22 @@ const withContracts = async () => {
 		10000
 	);
 
+	const erc721_2 = await TestERC721.deploy(
+		'CO Token 721',
+		'CO_721',
+		'',
+		'',
+		10000
+	);
+
+	const erc721_3 = await TestERC721.deploy(
+		'TEST Token 721',
+		'TEST_721',
+		'',
+		'',
+		10000
+	);
+
 	/// erc1155
 	const ProxyRegistry = await ethers.getContractFactory("contracts/test/ProxyRegistry.sol:ProxyRegistry");
 	const proxyRegistry = await ProxyRegistry.deploy();
@@ -52,7 +68,7 @@ const withContracts = async () => {
 		proxyRegistry.address
 	);
 	
-	return  {remandMulti, erc20_1, erc20_2, erc20_3, erc721_1, erc1155_1} 
+	return  {remandMulti, erc20_1, erc20_2, erc20_3, erc721_1, erc721_2, erc721_3, erc1155_1} 
 }
 
 exports.withContracts = withContracts;

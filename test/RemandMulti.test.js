@@ -1,4 +1,4 @@
-const { ethers } = require('hardhat');
+const { ethers, network } = require('hardhat');
 const { expect } = require('chai');
 const { should } = require('chai').should();
 const { withContracts } = require('./utils/fixture');
@@ -7,7 +7,7 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 	let signers, addresses, admin, offerCreator, offerTarget, offerNonTarget;
 	let remandMulti, erc20_1, erc20_2, erc20_3;
-	let erc721_1, erc1155_1; 
+	let erc721_1, erc721_2, erc721_3, erc1155_1; 
 	let contracts;
 	
 	before(async () => {
@@ -40,88 +40,267 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 		}
 
 
-		// const { remandMulti, erc20_1, erc20_2, erc20_3 } = withContracts();
-
 		contracts = await withContracts();
 
 		remandMulti = contracts.remandMulti;
+
 		erc20_1 = contracts.erc20_1;
 		erc20_2 = contracts.erc20_2;
 		erc20_3 = contracts.erc20_3;
 
 		erc721_1 = contracts.erc721_1;
+		erc721_2 = contracts.erc721_2;
+		erc721_3 = contracts.erc721_3;
+
 		erc1155_1 = contracts.erc1155_1;
-		// console.log(contracts)
 
-		// const mintAskToken = await askToken_1.mint(
-		// 	offerTarget.address,
-		// 	ethers.utils.parseEther('100000000')
-		// )
+		await erc20_1.mint(
+			offerTarget.address,
+			ethers.utils.parseEther('100000000')
+		)
 
-		// const mintCollateralToken = await collateralToken_1.mint(
-		// 	offerCreator.address,
-		// 	ethers.utils.parseEther('100000')
-		// )
+		await erc20_2.mint(
+			offerCreator.address,
+			ethers.utils.parseEther('100000000')
+		)
 
-		// const mintFeeToken = await feeToken_1.mint(
-		// 	offerCreator.address,
-		// 	ethers.utils.parseEther('1000000')
-		// )
+		await erc20_3.mint(
+			offerCreator.address,
+			ethers.utils.parseEther('100000000')
+		)
+
+		await erc721_1.mint(
+			offerTarget.address,
+			20
+		)
+
+		await erc721_2.mint(
+			offerCreator.address,
+			20
+		)
+
+		await erc721_3.mint(
+			offerCreator.address,
+			20
+		)
+
+		const erc1155Supplies = [
+			10, 10, 10, 10, 10
+		]
+
+		for (let i = 0; i < erc1155Supplies.length; i++) {
+			let groupId = ethers.BigNumber.from(i);
+			let shiftedGroupId = groupId.shl(128);
+			let itemIds = [];
+			let itemAmounts = [];
+			for (let j = 1; j <= erc1155Supplies[i]; j++) {
+				itemIds.push(shiftedGroupId.add(j));
+				itemAmounts.push(1);
+			}
+			const createItemsTx = await erc1155_1.createNFT(
+				offerCreator.address,
+				itemIds,
+				itemAmounts,
+				[]
+			)
+			await createItemsTx.wait();
+		}
+
 	});
 
-	context('Offer creation', async () => {
+	context('ERC721 Only', async () => {
 		it('should create offer successfully', async () => {
-			// const offer = {
-			// 	owner: offerCreator.address, 
-			// 	term: 100000,
-			// 	target: offerTarget.address,
-			// 	acceptedAt: 0,
-			// 	askToken: erc20_1.address,
-			// 	askAmount: ethers.utils.parseEther('10000'),
-			// 	collateral: collateralToken_1.address,
-			// 	collateralAmount: ethers.utils.parseEther('100'),
-			// 	fee: feeToken_1.address,
-			// 	feeAmount: ethers.utils.parseEther('10'),
-			// }
+
+			const askTokens = [
+				{
+					assetType: 0,
+					assetAddress: erc20_1.address,
+					id: 0,
+					quantity: 1000
+				}
+			]
+
+			const collateralTokens = [
+				{
+					assetType: 0,
+					assetAddress: erc20_2.address,
+					id: 0,
+					quantity: 10000
+				}
+			]
+
+			const feeTokens = [
+				{
+					assetType: 0,
+					assetAddress: erc20_3.address,
+					id: 0,
+					quantity: 100
+				}
+			]
+
+			const blockTimestamp = (await admin.provider.getBlock('latest')).timestamp;
+
+			const erc20Offer = {
+				owner: offerCreator.address,
+				term: 320000, //seconds
+				target: offerTarget.address,
+				acceptedAt: 0,
+				deadline: blockTimestamp + 10000,
+				askAssets: askTokens,
+				collateralAssets: collateralTokens,
+				feeAssets: feeTokens
+			}
 
 
-
-			await erc20_1.connect(offerCreator.signer).approve(
+			await erc20_2.connect(offerCreator.signer).approve(
+				remandMulti.address, 
+				ethers.utils.parseEther('20000')
+			)
+			await erc20_3.connect(offerCreator.signer).approve(
 				remandMulti.address, 
 				ethers.utils.parseEther('200')
 			)
-			await erc20_2.connect(offerCreator.signer).approve(
-				remandMulti.address, 
-				ethers.utils.parseEther('20')
-			)
 
-			// const newOffer = 
-			// 	await remandERC20.connect(offerCreator.signer).create(offer);
+			const newOffer = 
+				await remandMulti.connect(offerCreator.signer).create(erc20Offer);
 
-			// expect(newOffer).to.be.ok;
+			expect(newOffer).to.be.ok;
 
-			// const newOfferReceipt = await newOffer.wait();
-			// const newOfferKey = newOfferReceipt.events[4].args.key;
-			// const offerData = await remandERC20.offers(newOfferKey);
-			// console.log("offerData", offerData)
+			console.log("new offer", erc20Offer)
+
+			const newOfferReceipt = await newOffer.wait();
+			const newOfferKey = newOfferReceipt.events[4].args.key;
+			const offerData = await remandMulti.getOfferTokens(newOfferKey);
+			console.log("offertokens", offerData)
 
 			// const duplicateOffer = 
-			// 	await remandERC20.connect(offerCreator.signer).create(offer);
+			// 	await remandMulti.connect(offerCreator.signer).create(erc20Offer);
 
 			// const duplicateOfferReceipt = await duplicateOffer.wait();
 			// console.log(newOfferReceipt.events[4].args);
 			// console.log(duplicateOfferReceipt.events[4].args);
 
 
-			// //accept offer
-			// await askToken_1.connect(offerTarget.signer).approve(
-			// 	remandERC20.address, 
-			// 	ethers.utils.parseEther('10000')
-			// )
-			// await remandERC20.connect(offerTarget.signer).accept(newOfferKey);
+			//accept offer
+			await erc20_1.connect(offerTarget.signer).approve(
+				remandMulti.address, 
+				ethers.utils.parseEther('1000')
+			)
 
+			const acceptedOffer = 
+				await remandMulti.connect(offerTarget.signer).accept(newOfferKey);
+
+			expect(acceptedOffer).to.be.ok;
 			// const offerUpdatedData = await remandERC20.offers(newOfferKey);
 			// console.log("offerUpdatedData", offerUpdatedData);
+		});
+	});
+
+	context('ERC721 Only', async () => {
+		it('should create offer successfully', async () => {
+			const askTokens = [{
+				assetType: 1,
+				assetAddress: erc721_1.address,
+				id: 1,
+				quantity: 0
+			}]
+
+			const collateralTokens = [{
+				assetType: 1,
+				assetAddress: erc721_2.address,
+				id: 1,
+				quantity: 0
+			}]
+
+			const feeTokens = [{
+				assetType: 1,
+				assetAddress: erc721_3.address,
+				id: 1,
+				quantity: 0
+			}]
+
+			await erc721_2.connect(offerCreator.signer).approve(
+				remandMulti.address, 
+				1
+			)
+
+			await erc721_3.connect(offerCreator.signer).approve(
+				remandMulti.address, 
+				1
+			)
+
+			const blockTimestamp = (await admin.provider.getBlock('latest')).timestamp;
+			const term = 640000;
+
+			const erc721Offer = {
+				owner: offerCreator.address,
+				term: term, //seconds
+				target: offerTarget.address,
+				acceptedAt: 0,
+				deadline: blockTimestamp + 10000,
+				askAssets: askTokens,
+				collateralAssets: collateralTokens,
+				feeAssets: feeTokens
+			}
+
+			const newOffer = 
+				await remandMulti.connect(offerCreator.signer).create(erc721Offer);
+
+			const newOfferReceipt = await newOffer.wait();
+			const newOfferKey = newOfferReceipt.events[4].args.key;
+			const offerData = await remandMulti.getOfferTokens(newOfferKey);
+			console.log("offertokens", offerData)
+
+			// rescind offer
+
+			const rescindOffer = 
+				await remandMulti.connect(offerCreator.signer).rescind(newOfferKey);
+
+			const rescindOfferReceipt = await rescindOffer.wait();
+			console.log("rescindOffer events", rescindOfferReceipt.events)
+			const rescindedOfferData = await remandMulti.getOfferTokens(newOfferKey);
+			console.log("rescindOffer tokens", rescindedOfferData)
+
+			// reapprove tokens
+			await erc721_2.connect(offerCreator.signer).approve(
+				remandMulti.address, 
+				1
+			)
+
+			await erc721_3.connect(offerCreator.signer).approve(
+				remandMulti.address, 
+				1
+			)
+
+			// make another offer
+			const fixedOffer = 
+				await remandMulti.connect(offerCreator.signer).create(erc721Offer);
+			const fixedOfferReceipt = await fixedOffer.wait();
+			const fixedOfferKey = fixedOfferReceipt.events[4].args.key;
+
+			// target accepts offer
+			await erc721_1.connect(offerTarget.signer).approve(
+				remandMulti.address, 
+				1
+			)
+
+			const acceptedOffer = 
+				await remandMulti.connect(offerTarget.signer).accept(fixedOfferKey);
+
+			expect(acceptedOffer).to.be.ok;
+
+			
+			const newTimestamp = blockTimestamp + term + 10;
+
+			await network.provider.send("evm_setNextBlockTimestamp", [newTimestamp]);
+    		await network.provider.send("evm_mine");
+			
+			const remandOffer = 
+				await remandMulti.connect(offerTarget.signer).remand(fixedOfferKey);
+			
+			const remandedData = await remandMulti.offers(fixedOfferKey);
+			console.log("remandedData", remandedData);
+			
 		});
 	});
 });
