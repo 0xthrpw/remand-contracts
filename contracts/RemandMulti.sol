@@ -78,6 +78,17 @@ error OfferAlreadyExists();
 error AskIsCollateral();
 
 /**
+ 	Thrown when attempting to accept an offer after the offer deadline
+*/
+error OfferExpired();
+
+/**
+ 	Thrown when attempting to create an offer with a term that is less than the 
+	contract's 'minimumTerm';
+*/
+error TermTooShort();
+
+/**
 	@custom:benediction DEVS BENEDICAT ET PROTEGAT CONTRACTVS MEAM
 	@title Remand: ERC20, ERC721 and ERC1155 Collateral Lending
 	@author throw; <@0xthrpw>
@@ -164,11 +175,13 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		bytes32 key
 	);
 
+	uint256 public immutable minimumTerm;
+
 	/**
 	
 	*/
 	constructor () {
-
+		minimumTerm = 1 days;
 	}
 
 	/**
@@ -193,12 +206,16 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	function create (
 		Offer calldata _offer
 	) external nonReentrant {
-		if (_offer.owner != msg.sender) {
+		if ( _offer.owner != msg.sender ) {
 			revert OwnerMismatch();
 		}
 
-		if (_offer.acceptedAt != 0) {
+		if ( _offer.acceptedAt != 0 ) {
 			revert NonZeroAcceptedAt();
+		}
+
+		if ( _offer.term < minimumTerm ) {
+			revert TermTooShort();
 		}
 
 		bytes32 key = keccak256(
@@ -251,10 +268,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		// transfer collateral assets back to owner
-		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
+		_handleAssetTransfers(offer.collateralAssets, msg.sender);
 
 		// transfer fee assets back to owner
-		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
+		_handleAssetTransfers(offer.feeAssets, msg.sender);
 
 		delete offers[_key];
 
@@ -280,6 +297,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 			revert OfferAlreadyAccepted();
 		}
 
+		if ( offer.deadline != 0 && block.timestamp > offer.deadline ) {
+			revert OfferExpired();
+		}
+
 		// update offer state
 		offers[_key].acceptedAt = uint48(block.timestamp);
 		offers[_key].target = msg.sender;
@@ -288,7 +309,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		_handleAssetTransferFroms(offer.askAssets, msg.sender, offer.owner);
 
 		// transfer fee assets from contract to target
-		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
+		_handleAssetTransfers(offer.feeAssets, msg.sender);
 
 		emit Accepted(
 			msg.sender,
@@ -310,11 +331,15 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 			revert NotOfferOwner();
 		}
 
+		if( offer.acceptedAt == 0 ) {
+			revert OfferNotAccepted();
+		}
+
 		// transfer ask assets from owner to original target
 		_handleAssetTransferFroms(offer.askAssets, msg.sender, offer.target);
 
 		// return collateral assets to original owner
-		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
+		_handleAssetTransfers(offer.collateralAssets, msg.sender);
 
 
 		delete offers[_key];
@@ -350,7 +375,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		// transfer collateral assets to target
-		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
+		_handleAssetTransfers(offer.collateralAssets, msg.sender);
 
 		delete offers[_key];
 
@@ -366,7 +391,6 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	*/
 	function _handleAssetTransfers ( 
 		Asset[] memory _assets,
-		address from,
 		address to
 	) internal {
 		for (uint256 i; i < _assets.length; ) {

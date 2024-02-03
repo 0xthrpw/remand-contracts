@@ -1,6 +1,11 @@
 const { ethers, network } = require('hardhat');
 const { expect } = require('chai');
-const { should } = require('chai').should();
+
+const chai = require('chai');
+const { solidity } = require('ethereum-waffle');
+chai.use(solidity);
+
+// const { should } = require('chai').should();
 const { withContracts } = require('./utils/fixture');
 
 describe('/OTG/ Offer Testing General: Remand Multi', () => {
@@ -237,7 +242,7 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 				term: term, //seconds
 				target: offerTarget.address,
 				acceptedAt: 0,
-				deadline: blockTimestamp + 10000,
+				deadline: blockTimestamp + 100000,
 				askAssets: askTokens,
 				collateralAssets: collateralTokens,
 				feeAssets: feeTokens
@@ -284,12 +289,27 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 				1
 			)
 
+			await expect(
+				remandMulti.connect(offerNonTarget.signer).accept(fixedOfferKey)
+			).to.be.revertedWith('NotOfferTarget');
+
 			const acceptedOffer = 
 				await remandMulti.connect(offerTarget.signer).accept(fixedOfferKey);
 
 			expect(acceptedOffer).to.be.ok;
 
+			await expect(
+				remandMulti.connect(offerTarget.signer).accept(fixedOfferKey)
+			).to.be.revertedWith('OfferAlreadyAccepted');
 			
+			await expect(
+				remandMulti.connect(offerCreator.signer).rescind(fixedOfferKey)
+			).to.be.revertedWith('CantRescindAcceptedOffer');
+
+			await expect(
+				remandMulti.connect(offerTarget.signer).remand(fixedOfferKey)
+			).to.be.revertedWith('IncompleteTerm');
+
 			const newTimestamp = blockTimestamp + term + 10;
 
 			await network.provider.send("evm_setNextBlockTimestamp", [newTimestamp]);
@@ -300,7 +320,7 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 			
 			const remandedData = await remandMulti.offers(fixedOfferKey);
 			console.log("remandedData", remandedData);
-			
+
 		});
 	});
 });
