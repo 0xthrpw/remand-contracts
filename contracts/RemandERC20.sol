@@ -94,9 +94,9 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	using SafeERC20 for IERC20;
 
 	struct Offer {
-		address owner;
+		address maker;
 		uint96 term;
-		address target;
+		address taker;
 		uint48 acceptedAt;
 		uint48 deadline;
 		address askToken;
@@ -107,7 +107,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		uint96 feeAmount;
 	}
 
-	/// keccak(owner, target, collateral, nonce) => Offer struct
+	/// keccak(maker, taker, collateral, nonce) => Offer struct
 	mapping ( bytes32 => Offer ) public offers;
 
 	/// address => nonce
@@ -120,8 +120,8 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		Emitted on offer creation.
 	*/
 	event Created(
-		address indexed owner,
-		address indexed target,
+		address indexed maker,
+		address indexed taker,
 		address indexed collateral,
 		bytes32 key
 	);
@@ -172,7 +172,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	function create (
 		Offer calldata _offer
 	) external nonReentrant {
-		if (_offer.owner != msg.sender) {
+		if (_offer.maker != msg.sender) {
 			revert OwnerMismatch();
 		}
 
@@ -190,14 +190,14 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 		bytes32 key = keccak256(
 			abi.encodePacked(
-				_offer.owner, 
-				_offer.target, 
+				_offer.maker, 
+				_offer.taker, 
 				_offer.collateral, 
 				nonces[msg.sender]
 			)
 		);
 
-		if ( offers[key].owner != address(0)) {
+		if ( offers[key].maker != address(0)) {
 			revert OfferAlreadyExists();
 		}
 
@@ -222,8 +222,8 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		}
 
 		emit Created(
-			_offer.owner, 
-			_offer.target, 
+			_offer.maker, 
+			_offer.taker, 
 			_offer.collateral,
 			key
 		);
@@ -239,7 +239,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
-		if(offer.owner != msg.sender){
+		if(offer.maker != msg.sender){
 			revert NotOfferOwner();
 		}
 
@@ -249,13 +249,13 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 		delete offers[_key];
 
-		// transfer collateral back to owner
+		// transfer collateral back to maker
 		IERC20(offer.collateral).safeTransfer(
 			msg.sender,
 			offer.collateralAmount
 		);
 
-		// transfer fee back to owner
+		// transfer fee back to maker
 		IERC20(offer.fee).safeTransfer(
 			msg.sender,
 			offer.feeAmount
@@ -268,14 +268,14 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 	/**
 		Accept offer
-		deposit ask (sent to offer owner)
+		deposit ask (sent to offer maker)
 		receive fee
 	*/
 	function accept (
 		bytes32 _key
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
-		if ( offer.target != address(0) && offer.target != msg.sender) {
+		if ( offer.taker != address(0) && offer.taker != msg.sender) {
 			revert NotOfferTarget();
 		}
 
@@ -289,15 +289,15 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 		// update offer state
 		offers[_key].acceptedAt = uint48(block.timestamp);
-		offers[_key].target = msg.sender;
+		offers[_key].taker = msg.sender;
 
-		// transfer ask from target to offer owner
+		// transfer ask from taker to offer maker
 		IERC20(offer.askToken).safeTransferFrom(
 			msg.sender,
-			offer.owner,
+			offer.maker,
 			offer.askAmount
 		);
-		// transfer fee from contract to target
+		// transfer fee from contract to taker
 		IERC20(offer.fee).safeTransfer(
 			msg.sender,
 			offer.feeAmount
@@ -319,7 +319,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
-		if(offer.owner != msg.sender){
+		if(offer.maker != msg.sender){
 			revert NotOfferOwner();
 		}
 
@@ -329,14 +329,14 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 		delete offers[_key];
 
-		// transfer ask from owner to original target
+		// transfer ask from maker to original taker
 		IERC20(offer.askToken).safeTransferFrom(
 			msg.sender,
-			offer.target,
+			offer.taker,
 			offer.askAmount
 		);
 
-		// return collateral to original owner
+		// return collateral to original maker
 		IERC20(offer.collateral).safeTransfer(
 			msg.sender,
 			offer.collateralAmount
@@ -357,8 +357,8 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
-		// require caller is offer target
-		if ( offer.target != msg.sender) {
+		// require caller is offer taker
+		if ( offer.taker != msg.sender) {
 			revert NotOfferTarget();
 		}
 
@@ -372,7 +372,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 			revert IncompleteTerm();
 		}
 
-		// transfer collateral to target
+		// transfer collateral to taker
 		IERC20(offer.collateral).safeTransfer(
 			msg.sender,
 			offer.collateralAmount

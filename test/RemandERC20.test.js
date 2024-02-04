@@ -77,9 +77,9 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			const term = 100000;
 
 			const offer = {
-				owner: offerCreator.address, 
+				maker: offerCreator.address, 
 				term: term,
-				target: offerTarget.address,
+				taker: offerTarget.address,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 1000,
 				askToken: askToken_1.address,
@@ -135,9 +135,9 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			const term = 100000;
 
 			const offer = {
-				owner: offerCreator.address, 
+				maker: offerCreator.address, 
 				term: term,
-				target: ethers.constants.AddressZero,
+				taker: ethers.constants.AddressZero,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 1000,
 				askToken: askToken_1.address,
@@ -157,12 +157,12 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 				ethers.utils.parseEther('20')
 			)
 
-			// should revert when trying to create offer with incorrect owner address 
-			offer.owner = offerNonTarget.address;
+			// should revert when trying to create offer with incorrect maker address 
+			offer.maker = offerNonTarget.address;
 			await expect(
 				remandERC20.connect(offerCreator.signer).create(offer)
 			).to.be.revertedWith('OwnerMismatch');
-			offer.owner = offerCreator.address;
+			offer.maker = offerCreator.address;
 
 			// should revert when creating offer with a value set for 'acceptedAt'
 			offer.acceptedAt = blockTimestamp;
@@ -222,9 +222,9 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			const term = 100000;
 
 			const offer = {
-				owner: offerCreator.address, 
+				maker: offerCreator.address, 
 				term: term,
-				target: ethers.constants.AddressZero,
+				taker: ethers.constants.AddressZero,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 1000,
 				askToken: askToken_1.address,
@@ -267,9 +267,9 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			const term = 100000;
 
 			const offer = {
-				owner: offerCreator.address, 
+				maker: offerCreator.address, 
 				term: term,
-				target: ethers.constants.AddressZero,
+				taker: ethers.constants.AddressZero,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 1000,
 				askToken: askToken_1.address,
@@ -345,9 +345,9 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 			const term = 100000;
 
 			const offer = {
-				owner: offerCreator.address, 
+				maker: offerCreator.address, 
 				term: term,
-				target: offerTarget.address,
+				taker: offerTarget.address,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 1000,
 				askToken: askToken_1.address,
@@ -408,7 +408,7 @@ describe('/OTG/ Offer Testing General: ERC20', () => {
 				remandERC20.connect(offerNonTarget.signer).remand(newOfferKey)
 			).to.be.revertedWith('NotOfferTarget');
 
-			// offer target remands collateral assets and closes offer
+			// offer taker remands collateral assets and closes offer
 			await remandERC20.connect(offerTarget.signer).remand(newOfferKey)
 		});
 	});

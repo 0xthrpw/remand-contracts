@@ -146,9 +146,9 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 			// create offer struct
 			const erc20Offer = {
-				owner: offerCreator.address,
+				maker: offerCreator.address,
 				term: 320000, //seconds
-				target: offerTarget.address,
+				taker: offerTarget.address,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 10000,
 				askAssets: askTokens,
@@ -219,7 +219,7 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 				remandMulti.connect(offerCreator.signer).repay(newOfferKey)
 			).to.be.revertedWith('OfferNotAccepted');
 
-			// offer target approves contract to transfer ask assets
+			// offer taker approves contract to transfer ask assets
 			await erc20_1.connect(offerTarget.signer).approve(
 				remandMulti.address, 
 				ethers.utils.parseEther('1000')
@@ -273,9 +273,9 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 			// create private offer struct
 			const erc721Offer = {
-				owner: offerCreator.address,
+				maker: offerCreator.address,
 				term: term, //seconds
-				target: offerTarget.address,
+				taker: offerTarget.address,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 100000,
 				askAssets: askTokens,
@@ -320,18 +320,18 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 			const fixedOfferReceipt = await fixedOffer.wait();
 			const fixedOfferKey = fixedOfferReceipt.events[4].args.key;
 
-			// should revert when offer target specified and wrong user tries to accept
+			// should revert when offer taker specified and wrong user tries to accept
 			await expect(
 				remandMulti.connect(offerNonTarget.signer).accept(fixedOfferKey)
 			).to.be.revertedWith('NotOfferTarget');
 
-			// offer target approves contract to transfer ask assets
+			// offer taker approves contract to transfer ask assets
 			await erc721_1.connect(offerTarget.signer).approve(
 				remandMulti.address, 
 				1
 			)
 
-			// offer target accepts offer
+			// offer taker accepts offer
 			const acceptedOffer = 
 				await remandMulti.connect(offerTarget.signer).accept(fixedOfferKey);
 
@@ -418,9 +418,9 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 			// create public offer struct
 			let ercMixedOffer = {
-				owner: offerCreator.address,
+				maker: offerCreator.address,
 				term: term, //seconds
-				target: ethers.constants.AddressZero,
+				taker: ethers.constants.AddressZero,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 100000,
 				askAssets: askTokens,
@@ -428,12 +428,12 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 				feeAssets: feeTokens
 			}
 
-			// should revert when trying to create offer with incorrect owner address 
-			ercMixedOffer.owner = offerNonTarget.address;
+			// should revert when trying to create offer with incorrect maker address 
+			ercMixedOffer.maker = offerNonTarget.address;
 			await expect(
 				remandMulti.connect(offerCreator.signer).create(ercMixedOffer)
 			).to.be.revertedWith('OwnerMismatch');
-			ercMixedOffer.owner = offerCreator.address;
+			ercMixedOffer.maker = offerCreator.address;
 
 			// should revert when creating offer with a value set for 'acceptedAt'
 			ercMixedOffer.acceptedAt = blockTimestamp;
@@ -480,7 +480,7 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 			await network.provider.send("evm_setNextBlockTimestamp", [termTimestamp]);
 			await network.provider.send("evm_mine");
 
-			// offer owner approves contract to transfer ask assets out of their wallet
+			// offer maker approves contract to transfer ask assets out of their wallet
 			await erc20_1.connect(offerCreator.signer).approve(
 				remandMulti.address, 
 				ethers.utils.parseEther('50000')
@@ -537,9 +537,9 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 			// create mixed offer struct
 			let erc1155MixedOffer = {
-				owner: offerCreator.address,
+				maker: offerCreator.address,
 				term: term, //seconds
-				target: ethers.constants.AddressZero,
+				taker: ethers.constants.AddressZero,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 43200,
 				askAssets: askTokens,
@@ -602,9 +602,9 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 			const term = 86400 * 2;
 
 			let erc1155MixedOffer = {
-				owner: offerCreator.address,
+				maker: offerCreator.address,
 				term: term, //seconds
-				target: offerTarget.address,
+				taker: offerTarget.address,
 				acceptedAt: 0,
 				deadline: blockTimestamp + 43200,
 				askAssets: askTokens,

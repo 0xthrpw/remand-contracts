@@ -119,9 +119,9 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	}
 
 	struct Offer {
-		address owner;
+		address maker;
 		uint96 term;
-		address target;
+		address taker;
 		uint48 acceptedAt;
 		uint48 deadline;
 
@@ -130,7 +130,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		Asset[] feeAssets;
 	}
 
-	/// keccak(owner, target, nonce) => Offer struct
+	/// keccak(maker, taker, nonce) => Offer struct
 	mapping ( bytes32 => Offer ) public offers;
 
 	/// address => nonce
@@ -143,8 +143,8 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		Emitted on offer creation.
 	*/
 	event Created(
-		address indexed owner,
-		address indexed target,
+		address indexed maker,
+		address indexed taker,
 		bytes32 key
 	);
 
@@ -207,7 +207,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	function create (
 		Offer calldata _offer
 	) external nonReentrant {
-		if ( _offer.owner != msg.sender ) {
+		if ( _offer.maker != msg.sender ) {
 			revert OwnerMismatch();
 		}
 
@@ -221,13 +221,13 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 
 		bytes32 key = keccak256(
 			abi.encodePacked(
-				_offer.owner, 
-				_offer.target, 
+				_offer.maker, 
+				_offer.taker, 
 				nonces[msg.sender]
 			)
 		);
 
-		if ( offers[key].owner != address(0)) {
+		if ( offers[key].maker != address(0)) {
 			revert OfferAlreadyExists();
 		}
 
@@ -244,8 +244,8 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		}
 
 		emit Created(
-			_offer.owner, 
-			_offer.target, 
+			_offer.maker, 
+			_offer.taker, 
 			key
 		);
 	}
@@ -260,7 +260,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
-		if(offer.owner != msg.sender){
+		if(offer.maker != msg.sender){
 			revert NotOfferOwner();
 		}
 
@@ -270,10 +270,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 
 		delete offers[_key];
 
-		// transfer collateral assets back to owner
+		// transfer collateral assets back to maker
 		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
-		// transfer fee assets back to owner
+		// transfer fee assets back to maker
 		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
 
 		emit Rescinded(
@@ -283,14 +283,14 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 
 	/**
 		Accept offer
-		deposit ask (sent to offer owner)
+		deposit ask (sent to offer maker)
 		receive fee
 	*/
 	function accept (
 		bytes32 _key
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
-		if ( offer.target != address(0) && offer.target != msg.sender) {
+		if ( offer.taker != address(0) && offer.taker != msg.sender) {
 			revert NotOfferTarget();
 		}
 
@@ -304,12 +304,12 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 
 		// update offer state
 		offers[_key].acceptedAt = uint48(block.timestamp);
-		offers[_key].target = msg.sender;
+		offers[_key].taker = msg.sender;
 
-		// transfer ask assets from target to offer owner
-		_handleAssetTransfers(offer.askAssets, msg.sender, offer.owner);
+		// transfer ask assets from taker to offer maker
+		_handleAssetTransfers(offer.askAssets, msg.sender, offer.maker);
 
-		// transfer fee assets from contract to target
+		// transfer fee assets from contract to taker
 		_handleAssetTransfers(offer.feeAssets, address(this), msg.sender);
 
 		emit Accepted(
@@ -328,7 +328,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
-		if(offer.owner != msg.sender){
+		if(offer.maker != msg.sender){
 			revert NotOfferOwner();
 		}
 
@@ -338,10 +338,10 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 
 		delete offers[_key];
 
-		// transfer ask assets from owner to original target
-		_handleAssetTransfers(offer.askAssets, msg.sender, offer.target);
+		// transfer ask assets from maker to original taker
+		_handleAssetTransfers(offer.askAssets, msg.sender, offer.taker);
 
-		// return collateral assets to original owner
+		// return collateral assets to original maker
 		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
 		emit Repaid(
@@ -359,8 +359,8 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
 
-		// require caller is offer target
-		if ( offer.target != msg.sender) {
+		// require caller is offer taker
+		if ( offer.taker != msg.sender) {
 			revert NotOfferTarget();
 		}
 
@@ -376,7 +376,7 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 
 		delete offers[_key];
 
-		// transfer collateral assets to target
+		// transfer collateral assets to taker
 		_handleAssetTransfers(offer.collateralAssets, address(this), msg.sender);
 
 		emit Remanded(
