@@ -113,6 +113,9 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 	/// address => nonce
 	mapping ( address => uint256 ) public nonces;
 
+	/// the minimum term length in seconds 
+	uint256 public immutable minimumTerm;
+
 	/**
 		Emitted on offer creation.
 	*/
@@ -153,8 +156,6 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		bytes32 key
 	);
 
-	uint256 public immutable minimumTerm;
-
 
 	/**
 	
@@ -181,6 +182,10 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 
 		if ( _offer.collateral == _offer.askToken ) {
 			revert AskIsCollateral();
+		}
+
+		if ( _offer.term < minimumTerm ) {
+			revert TermTooShort();
 		}
 
 		bytes32 key = keccak256(
@@ -351,7 +356,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		bytes32 _key
 	) external nonReentrant {
 		Offer memory offer = offers[_key];
-		
+
 		// require caller is offer target
 		if ( offer.target != msg.sender) {
 			revert NotOfferTarget();
@@ -363,7 +368,7 @@ contract RemandERC20 is Ownable, ReentrancyGuard {
 		}
 
 		// require term is expired
-		if ( offer.acceptedAt + offer.term < block.timestamp ) {
+		if ( offer.acceptedAt + offer.term > block.timestamp ) {
 			revert IncompleteTerm();
 		}
 

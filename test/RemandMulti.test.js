@@ -118,28 +118,28 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 	});
 
-	context('ERC721 Only', async () => {
+	context('ERC20 Only', async () => {
 		it('should create offer successfully', async () => {
 
 			const askTokens = [{
 				assetType: 0,
 				assetAddress: erc20_1.address,
 				id: 0,
-				quantity: 1000
+				quantity: ethers.utils.parseEther("1000").toString()
 			}]
 
 			const collateralTokens = [{
 				assetType: 0,
 				assetAddress: erc20_2.address,
 				id: 0,
-				quantity: 10000
+				quantity: ethers.utils.parseEther("10000").toString()
 			}]
 
 			const feeTokens = [{
 				assetType: 0,
 				assetAddress: erc20_3.address,
 				id: 0,
-				quantity: 100
+				quantity: ethers.utils.parseEther("100").toString()
 			}]
 
 			const blockTimestamp = (await admin.provider.getBlock('latest')).timestamp;
@@ -167,12 +167,48 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 				remandMulti.address, 
 				ethers.utils.parseEther('200')
 			)
+
+			const creatorCollateralBalanceBefore = await erc20_2.balanceOf(offerCreator.address);
+			const creatorFeeBalanceBefore = await erc20_3.balanceOf(offerCreator.address);
+			
+			const contractCollateralBalanceBefore = await erc20_2.balanceOf(remandMulti.address);
+			const contractFeeBalanceBefore = await erc20_3.balanceOf(remandMulti.address);
 			
 			// create offer
 			const newOffer = 
 				await remandMulti.connect(offerCreator.signer).create(erc20Offer);
 
 			expect(newOffer).to.be.ok;
+
+			const creatorCollateralBalanceAfter = await erc20_2.balanceOf(offerCreator.address);
+			const creatorFeeBalanceAfter = await erc20_3.balanceOf(offerCreator.address);
+
+			const contractCollateralBalanceAfter = await erc20_2.balanceOf(remandMulti.address);
+			const contractFeeBalanceAfter = await erc20_3.balanceOf(remandMulti.address);
+
+			expect(
+				creatorCollateralBalanceBefore.sub(creatorCollateralBalanceAfter)
+			).to.be.equal(
+				ethers.utils.parseEther('10000')
+			)
+
+			expect(
+				creatorFeeBalanceBefore.sub(creatorFeeBalanceAfter)
+			).to.be.equal(
+				ethers.utils.parseEther('100')
+			)
+
+			expect(
+				contractCollateralBalanceAfter.sub(contractCollateralBalanceBefore)
+			).to.be.equal(
+				ethers.utils.parseEther('10000')
+			)
+
+			expect(
+				contractFeeBalanceAfter.sub(contractFeeBalanceBefore)
+			).to.be.equal(
+				ethers.utils.parseEther('100')
+			)
 
 			// get resulting offer key
 			const newOfferReceipt = await newOffer.wait();
@@ -331,7 +367,7 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 				remandMulti.connect(offerNonTarget.signer).remand(fixedOfferKey)
 			).to.be.revertedWith('NotOfferTarget');
 			
-			// remand collateral assetss
+			// remand collateral assets
 			const remandOffer = 
 				await remandMulti.connect(offerTarget.signer).remand(fixedOfferKey);
 			
