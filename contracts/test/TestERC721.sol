@@ -289,7 +289,7 @@ contract TestERC721 is
   ) external view virtual override returns (string memory) {
     if (!_exists(_id)) { revert URIQueryForNonexistentToken(); }
     return bytes(metadataUri).length != 0
-      ? string(abi.encodePacked(metadataUri, _id.toString(), '.json'))
+      ? string(abi.encodePacked(metadataUri, _id.toString()))
       : '';
   }
 
