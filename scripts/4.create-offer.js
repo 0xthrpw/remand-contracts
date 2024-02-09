@@ -1,7 +1,7 @@
 const { ethers } = require('hardhat');
 
-const REMAND_CONTRACT_ADDRESS = '0xa55773521a327B7960b9d759Bf9784f0eb657F6A';
-const ASK_TOKEN = '0x682e9AbB290E0CcB8Ed9b0a1448f74b572B35397';
+const REMAND_CONTRACT_ADDRESS = '0xEAdE11841145a6dacF6302F593031c4AA8b428a8';
+const ASK_TOKEN = '0x39B54e279d80B923842D1942EBb839E3982B8b2B';
 const COLLATERAL_TOKEN = '0x2E51CEab2caD7c1e8d30D8405E94Cd17904FE8eE';
 const FEE_TOKEN = '0x020aA9dbFf8dF3A7014A50937185694dA8cA363a';
 
@@ -35,7 +35,7 @@ async function main() {
 	// approve contract to transfer collateral assets
 	const approveCollateral = await erc721_1.connect(deployer.signer).approve(
 		remandMulti.address, 
-		1
+		3
 	)
 	await approveCollateral.wait();
 
@@ -51,6 +51,7 @@ async function main() {
 	
 	const blockTimestamp = (await deployer.provider.getBlock('latest')).timestamp;
 	const DEADLINE = blockTimestamp + 86400
+	console.log("deadline", DEADLINE);
 	const TERM = 864000; // 10 days
 
 	const askTokens = [{
@@ -63,7 +64,7 @@ async function main() {
 	const collateralTokens = [{
 		assetType: 1,
 		assetAddress: COLLATERAL_TOKEN,
-		id: 1,
+		id: 3,
 		quantity: 0
 	}]
 

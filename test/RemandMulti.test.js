@@ -291,6 +291,8 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 			const newOfferReceipt = await newOffer.wait();
 			const newOfferKey = newOfferReceipt.events[4].args.key;
 
+			const offerData = await remandMulti.getOffer(newOfferKey);
+			console.log("offerData", offerData)
 
 			// rescind offer
 			const rescindOffer = 
@@ -298,8 +300,8 @@ describe('/OTG/ Offer Testing General: Remand Multi', () => {
 
 			// const rescindOfferReceipt = await rescindOffer.wait();
 			// console.log("rescindOffer events", rescindOfferReceipt.events)
-			const rescindedOfferData = await remandMulti.getOfferTokens(newOfferKey);
-			// console.log("rescindOffer tokens", rescindedOfferData)
+			const rescindedOfferData = await remandMulti.getOffer(newOfferKey);
+			console.log("rescindOffer tokens", rescindedOfferData)
 
 			// offer creator reapproves collateral and fee tokens
 			await erc721_2.connect(offerCreator.signer).approve(

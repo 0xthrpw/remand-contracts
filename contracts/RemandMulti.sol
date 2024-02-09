@@ -189,10 +189,20 @@ contract RemandMulti is Ownable, ReentrancyGuard, RemandConfig {
 		Helper function to retrieve offer data, native getters don't return
 		struct arrays
 	*/
-	function getOfferTokens ( 
+	function getOffer ( 
 		bytes32 _key 
-	) external view returns ( Asset[] memory, Asset[] memory, Asset[] memory ) {
+	) external view returns ( 
+		uint96,
+		uint48,
+		uint48,
+		Asset[] memory, 
+		Asset[] memory, 
+		Asset[] memory 
+	) {
 		return (
+			offers[_key].term,
+			offers[_key].acceptedAt,
+			offers[_key].deadline,
 			offers[_key].askAssets, 
 			offers[_key].collateralAssets, 
 			offers[_key].feeAssets
