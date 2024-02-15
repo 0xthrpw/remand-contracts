@@ -75,6 +75,26 @@ async function main() {
 		40
 	);
 	await mintERC721TokensAgain.wait();
+
+	//
+
+	console.log('Deploying ERC1155 Token Contract...');
+
+	const ProxyRegistry = await ethers.getContractFactory("contracts/test/ProxyRegistry.sol:ProxyRegistry");
+	const proxyRegistry = await ProxyRegistry.deploy();
+	const proxyRegistryDeployed = await proxyRegistry.deployed();
+
+	const Fee1155 = await ethers.getContractFactory("Fee1155NFTLockable");
+	let erc1155_1 = await Fee1155.deploy(
+		'-', 
+		deployer.address,
+		proxyRegistry.address
+	);
+	await erc1155_1.deployed();
+
+	console.log(`TestERC1155 deployed to: ${erc1155_1.address}`);
+	console.log(`$ npx hardhat verify --network goerli ${erc1155_1.address} '-' ${deployer.address} ${proxyRegistry.address}`);
+
 }
 
 main()
